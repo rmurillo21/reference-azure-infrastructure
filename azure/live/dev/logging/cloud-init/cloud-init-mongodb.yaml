@@ -1,0 +1,19 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - wget
+  - curl
+  - gnupg
+  - openjdk-11-jre-headless
+
+runcmd:
+  - curl -fsSL https://pgp.mongodb.com/server-6.0.asc | gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
+  - echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+  - apt-get update
+  - apt-get install -y mongodb-org
+  - systemctl enable mongod
+  - systemctl start mongod
+  - wget https://artifacts.opensearch.org/releases/bundle/opensearch/2.11.1/opensearch-2.11.1-linux-x64.tar.gz
+  - tar -xzf opensearch-2.11.1-linux-x64.tar.gz -C /opt
+  - nohup /opt/opensearch-2.11.1/opensearch-tar-install.sh &
