@@ -1,5 +1,5 @@
-# reference-azure-infrastructure
-reference-azure-infrastructure
+# reference-ber-infrastructure
+reference-ber-infrastructure
 
 ```
 
@@ -19,4 +19,6 @@ MongoDB/OpenSearch VM: Yes
 
 
 ```
+
+See also https://github.com/Green-Marimba/azure-infra for legacy TF code
 
