@@ -1,0 +1,28 @@
+#cloud-config
+package_update: true
+packages:
+  - cifs-utils
+  - cron
+
+write_files:
+  - path: /etc/smbcredentials/graylogstorage.cred
+    permissions: '0600'
+    content: |
+      username=berdevgraylogsta
+      password=<STORAGE_KEY>
+
+  - path: /usr/local/bin/graylog_backup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      azcopy sync "/mnt/graylogstorage" "https://berdevgraylogsta.blob.core.windows.net/graylog-backups?<SAS_TOKEN>" --recursive
+
+runcmd:
+  - mkdir -p /mnt/graylogstorage
+  - echo "//berdevgraylogsta.file.core.windows.net/graylog-logs /mnt/graylogstorage cifs vers=3.0,credentials=/etc/smbcredentials/graylogstorage.cred,dir_mode=0777,file_mode=0777,serverino,nofail" >> /etc/fstab
+  - mount -a
+  - mkdir -p /mnt/graylogstorage/logs /mnt/graylogstorage/journal
+  - wget https://aka.ms/downloadazcopy-v10-linux -O azcopy.tar.gz
+  - tar -xf azcopy.tar.gz && cp ./azcopy_linux_amd64_*/azcopy /usr/bin/
+  - echo "0 2 * * * /usr/local/bin/graylog_backup.sh >> /var/log/graylog_backup.log 2>&1" | crontab -
+
