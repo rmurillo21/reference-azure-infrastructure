@@ -1,4 +1,4 @@
-3resource "azurerm_monitor_metric_alert" "fileshare_usage_alert" {
+#resource "azurerm_monitor_metric_alert" "fileshare_usage_alert" {
 #  name                = "graylog-fileshare-usage-alert"
 #    resource_group_name = var.storage_rg
 #  scopes              = [azurerm_storage_share.graylog_logs.id]

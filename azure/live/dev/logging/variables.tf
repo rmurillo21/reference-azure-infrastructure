@@ -18,7 +18,8 @@ variable "prefix" {
 
 variable "project_name" {
   description = "Project name for az resources."
-  type        = "loggin"
+  type        = string
+  default     = "loggin"
 }
 
 variable "env" {

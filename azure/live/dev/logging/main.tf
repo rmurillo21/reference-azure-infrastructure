@@ -278,21 +278,3 @@ resource "azurerm_linux_virtual_machine" "graylog_backend" {
         ]
     }
 }
-
-resource "azurerm_network_security_group" "graylog" {
-    name                = "graylog-nsg"
-    location            = azurerm_resource_group.graylog.location
-    resource_group_name = azurerm_resource_group.graylog.name
-
-    security_rule {
-        name                       = "allow-graylog-web"
-        priority                   = 100
-        direction                  = "Inbound"
-        access                     = "Allow"
-        protocol                   = "Tcp"
-        source_port_range          = "*"
-        destination_port_range     = "9000"
-        source_address_prefix      = "10.0.1.0/24"  
-        destination_address_prefix = "*"
-    }
-}

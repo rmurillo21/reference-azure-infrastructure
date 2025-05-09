@@ -1,8 +1,3 @@
-data "azurerm_application_gateway" "existing" {
-  name                = var.app_gateway_name
-  resource_group_name = var.app_gateway_rg
-}
-
 resource "azurerm_application_gateway_backend_address_pool_address" "graylog_pool" {
   count = var.graylog_count
 
