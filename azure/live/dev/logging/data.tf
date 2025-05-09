@@ -14,12 +14,12 @@ data "azurerm_subnet" "frontend" {
 
 data "azurerm_subnet" "backend" {
     name                 = var.subnet_backend # Tu subnet existente para backend
-    virtual_network_name = data.azurerm_virtual_network.existing.name
-    resource_group_name  = data.azurerm_virtual_network.existing.resource_group_name
+    virtual_network_name = data.azurerm_virtual_network.main.name
+    resource_group_name  = data.azurerm_virtual_network.main.resource_group_name
 }
 
 
-data "azurerm_application_gateway" "existing" {
+data "azurerm_application_gateway" "main" {
     name                = var.app_gateway_name
     resource_group_name = var.app_gateway_rg
 }

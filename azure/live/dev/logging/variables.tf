@@ -4,10 +4,10 @@ variable "subscription_id" {
   default     = "2ab939f0-b0e1-4dd2-b4ab-7f5d959219af"
 }
 
-
 variable "owner" {
   description = "Tag value for Owner - resource owner"
   type        = string
+  default     = "rodm"
 }
 
 variable "prefix" {
@@ -64,12 +64,12 @@ variable "subnet_backend"{
 # VM 
 variable "frontend_instance_size" {
   type        = string
-  description = "Standard_B2s"
+  default = "Standard_B2s"
 }
 
 variable "backend_instance_size" {
   type        = string
-  description = "Standard_B2s"
+  default = "Standard_B2s"
 }
 
 # Application Gateway

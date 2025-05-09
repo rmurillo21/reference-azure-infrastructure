@@ -182,7 +182,12 @@ resource "azurerm_linux_virtual_machine" "graylog_frontend" {
     eviction_policy     = "Deallocate"
     zone                = "1"
 
-    custom_data = base64encode(templatefile("${path.module}/cloud-init/graylog.yaml"))
+
+    custom_data = base64encode(templatefile("${path.module}/cloud-init/frontend.yaml", {
+        key_vault_name      = azurerm_key_vault.graylog_secrets.name
+        backend_subnet_cidr = data.azurerm_subnet.backend.address_prefix
+    }))
+
 
     network_interface_ids = [azurerm_network_interface.frontend.id]
 
