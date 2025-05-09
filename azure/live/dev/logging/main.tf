@@ -76,7 +76,7 @@ resource "azurerm_linux_virtual_machine" "graylog_backend" {
     name                = "graylog-backend-vm"
     resource_group_name = azurerm_resource_group.graylog.name
     location            = azurerm_resource_group.graylog.location
-    size                = "Standard_D4s_v3" 
+    size                = var.backend_instance_size
     admin_username      = "graylogadmin"
     priority            = "Spot"
     eviction_policy     = "Deallocate"
@@ -98,7 +98,7 @@ resource "azurerm_linux_virtual_machine" "graylog_backend" {
     os_disk {
         caching              = "ReadWrite"
         storage_account_type = "Premium_LRS"
-        disk_size_gb         = 128  # Más espacio para datos
+        disk_size_gb         = 128 
     }
 
     custom_data = filebase64("${path.module}/install_backend.sh")
@@ -123,7 +123,6 @@ resource "azurerm_network_security_group" "graylog" {
     location            = azurerm_resource_group.graylog.location
     resource_group_name = azurerm_resource_group.graylog.name
 
-    # Reglas específicas para Graylog en tu entorno existente
     security_rule {
         name                       = "allow-graylog-web"
         priority                   = 100

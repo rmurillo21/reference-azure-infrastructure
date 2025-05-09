@@ -57,7 +57,12 @@ variable "subnet_backend"{
 # VM 
 variable "frontend_instance_size" {
   type        = string
-  description = "Standard_F2"
+  description = "Standard_B2s"
+}
+
+variable "backend_instance_size" {
+  type        = string
+  description = "Standard_B2s"
 }
 
 variable "waf_rg" {
