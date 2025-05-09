@@ -1,0 +1,98 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+packages:
+  - apt-transport-https
+  - openjdk-11-jre-headless
+  - uuid-runtime
+  - pwgen
+  - jq
+  - curl
+  - haveged
+
+write_files:
+  - path: /etc/mongod.conf
+    content: |
+      storage:
+        dbPath: /var/lib/mongodb
+        journal:
+          enabled: true
+      systemLog:
+        destination: file
+        logAppend: true
+        path: /var/log/mongodb/mongod.log
+      net:
+        port: 27017
+        bindIp: 0.0.0.0
+      security:
+        authorization: enabled
+  - path: /etc/elasticsearch/elasticsearch.yml
+    content: |
+      cluster.name: graylog-cluster
+      network.host: 0.0.0.0
+      discovery.type: single-node
+      path.data: /var/lib/elasticsearch
+      bootstrap.memory_lock: false
+      action.auto_create_index: false
+  - path: /etc/default/elasticsearch
+    content: |
+      ES_JAVA_OPTS="-Xms4g -Xmx4g"
+  - path: /etc/systemd/system/mongodb-snapshot.service
+    content: |
+      [Unit]
+      Description=MongoDB Snapshot Service
+      After=mongod.service
+      
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/mongodump --uri="mongodb://localhost:27017" --username=graylog --password=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -H Metadata:true | jq -r .access_token | xargs -I {} curl -s "https://${key_vault_name}.vault.azure.net/secrets/mongodb-password?api-version=7.3" -H "Authorization: Bearer {}" | jq -r .value) --out /mnt/backup/mongodb-$(date +%%Y-%%m-%%d)
+      
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Install MongoDB
+  - apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9DA31620334BD75D9DCB49F368818C72E52529D4
+  - echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/4.4 multiverse" > /etc/apt/sources.list.d/mongodb-org-4.4.list
+  - apt-get update && apt-get install -y mongodb-org
+
+  # Install Elasticsearch
+  - curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+  - echo "deb https://artifacts.elastic.co/packages/oss-7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list
+  - apt-get update && apt-get install -y elasticsearch-oss
+
+  # Configure services
+  - mkdir -p /var/lib/{mongodb,elasticsearch}
+  - chown -R mongodb:mongodb /var/lib/mongodb
+  - chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
+  - systemctl enable mongod elasticsearch
+  - systemctl start mongod
+  - sleep 10 # Wait for MongoDB to start
+
+  # Create MongoDB user
+  - |
+    ACCESS_TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -H Metadata:true | jq -r .access_token)
+    MONGO_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/mongodb-password?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    mongo admin --eval 'db.createUser({user: "graylog", pwd: "'"$MONGO_PASS"'", roles: [{role: "readWrite", db: "graylog"}]})'
+
+  # Start Elasticsearch
+  - systemctl start elasticsearch
+  - sleep 10 # Wait for Elasticsearch to start
+
+  # Enable swap
+  - fallocate -l 4G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo "/swapfile none swap sw 0 0" >> /etc/fstab
+
+  # Setup backups
+  - mkdir -p /mnt/backup
+  - systemctl enable mongodb-snapshot.service
+  - echo "0 2 * * * systemctl start mongodb-snapshot.service" | crontab -
+  - echo "0 4 * * * find /mnt/backup -type d -mtime +7 -exec rm -rf {} \;" | crontab -
+
+  # Schedule daily updates
+  - echo "0 3 * * * apt-get update && apt-get upgrade -y && reboot" | crontab -

@@ -1,0 +1,83 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+packages:
+  - apt-transport-https
+  - openjdk-11-jre-headless
+  - uuid-runtime
+  - pwgen
+  - nginx
+  - jq
+  - curl
+  - haveged
+
+write_files:
+  - path: /etc/nginx/sites-available/graylog
+    content: |
+      server {
+          listen 80;
+          server_name _;
+          location / {
+              proxy_set_header Host $http_host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_pass http://127.0.0.1:9000;
+              proxy_read_timeout 90;
+          }
+      }
+  - path: /etc/systemd/system/graylog-restart.service
+    content: |
+      [Unit]
+      Description=Graylog Restart Service
+      After=network.target
+      
+      [Service]
+      ExecStart=/usr/bin/systemctl restart graylog-server
+      Restart=always
+      RestartSec=60
+      
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  # Install Graylog
+  - wget -qO /tmp/graylog.deb https://packages.graylog2.org/repo/packages/graylog-4.3-repository_latest.deb
+  - dpkg -i /tmp/graylog.deb
+  - apt-get update && apt-get install -y graylog-server graylog-enterprise-plugins
+
+  # Get secrets from Key Vault
+  - |
+    ACCESS_TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -H Metadata:true | jq -r .access_token)
+    SECRET_KEY=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/graylog-secret-key?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    ADMIN_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/graylog-admin-password?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    ADMIN_HASH=$(echo -n "$ADMIN_PASS" | sha256sum | cut -d" " -f1)
+
+  # Configure Graylog
+  - |
+    cat > /etc/graylog/server/server.conf << EOF
+    password_secret = $SECRET_KEY
+    root_password_sha2 = $ADMIN_HASH
+    http_bind_address = 0.0.0.0:9000
+    elasticsearch_hosts = http://${backend_subnet_cidr%/*}.4:9200
+    mongodb_uri = mongodb://graylog:$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/mongodb-password?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)@${backend_subnet_cidr%/*}.4:27017/graylog
+    EOF
+
+  # Enable services
+  - systemctl daemon-reload
+  - systemctl enable graylog-restart.service nginx
+  - systemctl start graylog-restart.service nginx
+  - ln -s /etc/nginx/sites-available/graylog /etc/nginx/sites-enabled/
+  - nginx -t && systemctl restart nginx
+
+  # Enable swap
+  - fallocate -l 2G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo "/swapfile none swap sw 0 0" >> /etc/fstab
+
+  # Schedule daily updates
+  - echo "0 3 * * * apt-get update && apt-get upgrade -y && reboot" | crontab -

@@ -17,3 +17,15 @@ data "azurerm_subnet" "backend" {
     virtual_network_name = data.azurerm_virtual_network.existing.name
     resource_group_name  = data.azurerm_virtual_network.existing.resource_group_name
 }
+
+
+data "azurerm_application_gateway" "existing" {
+    name                = var.app_gateway_name
+    resource_group_name = var.app_gateway_rg
+}
+
+# ssh key
+data "azurerm_ssh_public_key" "main" {
+    name                = "${var.prefix}-${var.env}-ssh-key"
+    resource_group_name = "${var.prefix}-${var.env}-rg"
+}

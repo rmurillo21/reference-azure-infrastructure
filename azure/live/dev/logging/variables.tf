@@ -4,6 +4,12 @@ variable "subscription_id" {
   default     = "2ab939f0-b0e1-4dd2-b4ab-7f5d959219af"
 }
 
+
+variable "owner" {
+  description = "Tag value for Owner - resource owner"
+  type        = string
+}
+
 variable "prefix" {
   description = "Prefix for az resources."
   type        = string
@@ -65,7 +71,12 @@ variable "backend_instance_size" {
   description = "Standard_B2s"
 }
 
-variable "waf_rg" {
+# Application Gateway
+variable "app_gateway_name" {
+  default = "ber-dev-waf-gateway"
+}
+
+variable "app_gateway_rg" {
   default = "ber-dev-waf-rg"
 }
 
@@ -89,9 +100,6 @@ variable "storage_account_name" {
 #  default = "10.20.5.0/24"
 #}
 
-variable "app_gateway_name" {
-  default = "ber-dev-waf-gateway"
-}
 
 variable "graylog_count" {
   default = 2
