@@ -64,12 +64,12 @@ variable "subnet_backend"{
 # VM 
 variable "frontend_instance_size" {
   type        = string
-  default = "Standard_B2s"
+  default = "Standard_D2s_v3"
 }
 
 variable "backend_instance_size" {
   type        = string
-  default = "Standard_B2s"
+  default = "Standard_D2s_v3"
 }
 
 # Application Gateway

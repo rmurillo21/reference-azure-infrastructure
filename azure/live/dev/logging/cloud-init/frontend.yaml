@@ -51,9 +51,11 @@ runcmd:
   # Get secrets from Key Vault
   - |
     ACCESS_TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -H Metadata:true | jq -r .access_token)
-    SECRET_KEY=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/graylog-secret-key?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
-    ADMIN_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/graylog-admin-password?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    SECRET_KEY=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/${secret_key_name}?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    ADMIN_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/${admin_password_name}?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
     ADMIN_HASH=$(echo -n "$ADMIN_PASS" | sha256sum | cut -d" " -f1)
+    MONGO_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/${mongodb_password_name}?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    BACKEND_IP=$(echo "${backend_subnet_cidr}" | awk -F/ '{print $1}' | awk -F. '{print $1"."$2"."$3".4"}')
 
   # Configure Graylog
   - |
@@ -61,8 +63,8 @@ runcmd:
     password_secret = $SECRET_KEY
     root_password_sha2 = $ADMIN_HASH
     http_bind_address = 0.0.0.0:9000
-    elasticsearch_hosts = http://${backend_subnet_cidr%/*}.4:9200
-    mongodb_uri = mongodb://graylog:$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/mongodb-password?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)@${backend_subnet_cidr%/*}.4:27017/graylog
+    elasticsearch_hosts = http://$BACKEND_IP:9200
+    mongodb_uri = mongodb://graylog:$MONGO_PASS@$BACKEND_IP:27017/graylog
     EOF
 
   # Enable services

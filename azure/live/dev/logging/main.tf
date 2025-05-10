@@ -8,8 +8,12 @@ data "azurerm_client_config" "current" {}
 
 
 locals {
-    resource_name = "${var.prefix}-${var.env}-${var.location}-${var.project_name}"
-    
+    resource_name         = "${var.prefix}-${var.env}-${var.location}-${var.project_name}"
+    key_vault_name        = "${local.resource_name}-kv"
+    admin_sk_password_name      = "${local.resource_name}-admin-passwd"
+    mongodb_sk_password_name    = "${local.resource_name}-mongodb-passwd"
+    graylog_sk_name  = "${local.resource_name}-secret-key"
+
     tags = {
         Owner       = var.owner
         Terraform   = "true"
@@ -27,7 +31,7 @@ resource "azurerm_resource_group" "graylog" {
 
 # Key Vault for secrets
 resource "azurerm_key_vault" "graylog_secrets" {
-    name                        = "${local.resource_name}-kv"
+    name                        = local.key_vault_name
     location                    = azurerm_resource_group.graylog.location
     resource_group_name         = azurerm_resource_group.graylog.name
     enabled_for_disk_encryption = true
@@ -71,19 +75,19 @@ resource "random_password" "mongodb_password" {
 
 # Store secrets in Key Vault
 resource "azurerm_key_vault_secret" "graylog_admin_password" {
-    name         = "${local.resource_name}-admin-passwd"
+    name         = local.admin_sk_password_name
     value        = random_password.graylog_admin.result
     key_vault_id = azurerm_key_vault.graylog_secrets.id
 }
 
 resource "azurerm_key_vault_secret" "graylog_secret_key" {
-    name         = "${local.resource_name}-secret-key"
+    name         = local.graylog_sk_name
     value        = random_password.graylog_secret.result
     key_vault_id = azurerm_key_vault.graylog_secrets.id
 }
 
 resource "azurerm_key_vault_secret" "mongodb_password" {
-    name         = "${local.resource_name}-mongodb-passwd"
+    name         = local.mongodb_sk_password_name
     value        = random_password.mongodb_password.result
     key_vault_id = azurerm_key_vault.graylog_secrets.id
 }
@@ -184,8 +188,11 @@ resource "azurerm_linux_virtual_machine" "graylog_frontend" {
 
 
     custom_data = base64encode(templatefile("${path.module}/cloud-init/frontend.yaml", {
-        key_vault_name      = azurerm_key_vault.graylog_secrets.name
-        backend_subnet_cidr = data.azurerm_subnet.backend.address_prefix
+        key_vault_name        = azurerm_key_vault.graylog_secrets.name
+        backend_subnet_cidr   = data.azurerm_subnet.backend.address_prefix
+        secret_key_name       = local.graylog_sk_name 
+        admin_password_name   = local.admin_sk_password_name
+        mongodb_password_name = local.mongodb_sk_password_name
     }))
 
 
@@ -198,8 +205,8 @@ resource "azurerm_linux_virtual_machine" "graylog_frontend" {
 
     source_image_reference {
         publisher = "Canonical"
-        offer     = "UbuntuServer"
-        sku       = "20_04-lts" 
+        offer     = "0001-com-ubuntu-server-jammy"
+        sku       = "22_04-lts"
         version   = "latest"
     }
 
@@ -235,7 +242,7 @@ resource "azurerm_network_interface" "backend" {
 
 
 resource "azurerm_linux_virtual_machine" "graylog_backend" {
-    name                = "graylog-backend-vm"
+    name                =  "${local.resource_name}-backend-vm"
     resource_group_name = azurerm_resource_group.graylog.name
     location            = azurerm_resource_group.graylog.location
     size                = var.backend_instance_size
@@ -253,8 +260,8 @@ resource "azurerm_linux_virtual_machine" "graylog_backend" {
 
     source_image_reference {
         publisher = "Canonical"
-        offer     = "UbuntuServer"
-        sku       = "20_04-lts"
+        offer     = "0001-com-ubuntu-server-jammy"
+        sku       = "22_04-lts"
         version   = "latest"
     }
 
@@ -271,6 +278,7 @@ resource "azurerm_linux_virtual_machine" "graylog_backend" {
 
     custom_data = base64encode(templatefile("${path.module}/cloud-init/backend.yaml", {
         key_vault_name = azurerm_key_vault.graylog_secrets.name
+        mongodb_password_name = local.mongodb_sk_password_name 
     }))
 
 

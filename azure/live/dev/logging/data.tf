@@ -27,5 +27,5 @@ data "azurerm_application_gateway" "main" {
 # ssh key
 data "azurerm_ssh_public_key" "main" {
     name                = "${var.prefix}-${var.env}-ssh-key"
-    resource_group_name = "${var.prefix}-${var.env}-rg"
+    resource_group_name = var.vnet_rg
 }

@@ -74,7 +74,7 @@ runcmd:
   # Create MongoDB user
   - |
     ACCESS_TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net' -H Metadata:true | jq -r .access_token)
-    MONGO_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/mongodb-password?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
+    MONGO_PASS=$(curl -s "https://${key_vault_name}.vault.azure.net/secrets/${mongodb_password_name}?api-version=7.3" -H "Authorization: Bearer $ACCESS_TOKEN" | jq -r .value)
     mongo admin --eval 'db.createUser({user: "graylog", pwd: "'"$MONGO_PASS"'", roles: [{role: "readWrite", db: "graylog"}]})'
 
   # Start Elasticsearch
